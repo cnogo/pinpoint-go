@@ -51,12 +51,12 @@ agent.GAgent.Start()
 
 + Echo Web框架中间件的使用
 
-导入`tool.Echo_PPTrace`中间件，即可启动对echo的trace，中间件会在echo的`context`中注入`*agent.TraceContext`,后续处理相关请求时，可以通过`context`获取`*agent.TraceContext`来展开对其他链路的追踪。
+导入`tool.EchoPinpointTrace`中间件，即可启动对echo的trace，中间件会在echo的`context`中注入`*agent.TraceContext`,后续处理相关请求时，可以通过`context`获取`*agent.TraceContext`来展开对其他链路的追踪。
 ```
 
 e := echo.New()
 
-e.Use(tool.Echo_PPTrace)
+e.Use(tool.EchoPinpointTrace)
 
 ```
 
@@ -66,19 +66,6 @@ e.Use(tool.Echo_PPTrace)
 ```
 client := tool.NewPPHttpClient(ctx)
 resq, err := client.Get("http://localhost:6789/test")
-```
-
-+ Sqlx的使用
-
-通过对[Sqlx](https://github.com/jmoiron/sqlx)进行修改定制来接入pinpoint-trace,
-注意必须使用带Context的方法才传递TraceContext才能追踪链路，用法如下：
-```
-traceCtx := sqlx.PPSqlxContext(c.Get(agent.PP_CTX))
-_ = db.GetContext(traceCtx, &name, "select account from account where id = 0")
-db.QueryxContext(traceCtx, "select * from account")
-tx, _ := db.Beginx()
-tx.GetContext(traceCtx, &name, "select account from account where id = 3")
-tx.Commit()
 ```
 
 ### Sample
@@ -105,18 +92,8 @@ func TestAgent(t *testing.T) {
 	e := echo.New()
 	
 	//注册Echo中间件
-	e.Use(tool.Echo_PPTrace)
+	e.Use(tool.EchoPinpointTrace)
 
-	var db *sqlx.DB
-
-	go func() {
-		var err error
-		db, err = sqlx.Connect("mysql", "root:123456@tcp(192.168.99.100:3306)/demo")
-
-		if err != nil {
-			fmt.Println("the connect db error: ", err)
-		}
-	}()
 
 
 	e.GET("/user/:name", func(c echo.Context) error {
@@ -128,17 +105,6 @@ func TestAgent(t *testing.T) {
 	})
 
 	e.GET("/info", func(c echo.Context) error {
-		var name string
-		traceCtx := sqlx.PPSqlxContext(c.Get(agent.PP_CTX))
-		_ = db.GetContext(traceCtx, &name, "select account from account where id = 0")
-		db.QueryxContext(traceCtx, "select * from account")
-		tx, _ := db.Beginx()
-
-		tx.GetContext(traceCtx, &name, "select account from account where id = 3")
-
-		tx.Commit()
-
-		fmt.Println(name)
 		return c.String(http.StatusOK,"the info age")
 	})
 
